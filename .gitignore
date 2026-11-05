@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# local env files
+.env*
+!.env.example
+
+# big local test media: never deploy (GitHub's file limit is 100 MB, and it isn't ours to publish)
+public/*.mkv
+public/*.mp4
+public/*.mov
+public/*.webm
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
