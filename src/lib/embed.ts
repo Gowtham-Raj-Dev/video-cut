@@ -19,6 +19,18 @@ export const ALLOWED_PARENT_ORIGINS = [
   "http://localhost:4173",
 ];
 
+/**
+ * Second way in: on the VideoCut site itself, "Connect UTubeFlow" opens UTubeFlow's upload page in a named tab.
+ * That tab (window.opener = us) says hello; we answer and later send it the clips.
+ *   UTubeFlow tab → VideoCut: { type: "utubeflow:hello", kind }
+ *   VideoCut → UTubeFlow tab: { type: "videocut:linked" }
+ *   VideoCut → UTubeFlow tab: { type: "videocut:clips", kind, clips: EmbedClip[] }
+ *   UTubeFlow tab → VideoCut: { type: "utubeflow:received", count }
+ * For local testing of both apps: NEXT_PUBLIC_UTUBEFLOW_URL=http://localhost:5173
+ */
+export const UTUBEFLOW_URL = (process.env.NEXT_PUBLIC_UTUBEFLOW_URL || "https://utubeflow.codelove.in").replace(/\/$/, "");
+export const UTUBEFLOW_TAB = "utubeflow";
+
 export type EmbedClip = {
   name: string;
   type: string;

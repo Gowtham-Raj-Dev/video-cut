@@ -29,6 +29,8 @@ import {
   AudioLines,
   HardDrive,
   Send,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -57,7 +59,7 @@ import {
   parseMediaMetadata,
 } from "@/lib/audio-detector";
 import { useTheme } from "next-themes";
-import { EmbedClip, EmbedInit, isAllowedParent, isEmbedRequested } from "@/lib/embed";
+import { EmbedClip, EmbedInit, UTUBEFLOW_TAB, UTUBEFLOW_URL, isAllowedParent, isEmbedRequested } from "@/lib/embed";
 
 /** The local multi-audio sample is too big (and not ours) to deploy — dev only. */
 const SHOW_LOCAL_SAMPLE = process.env.NODE_ENV !== "production";
@@ -255,6 +257,66 @@ export function VideoCutStudio() {
     return () => window.removeEventListener("message", onMessage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Connected UTubeFlow tab (VideoCut site → "Connect UTubeFlow"): the tab we opened and its verified origin
+  const linkWinRef = useRef<Window | null>(null);
+  const linkOriginRef = useRef<string | null>(null);
+  const [linkStatus, setLinkStatus] = useState<"idle" | "connecting" | "connected">("idle");
+
+  useEffect(() => {
+    if (isEmbedRequested()) return;
+
+    const onMessage = (e: MessageEvent) => {
+      if (!linkWinRef.current || e.source !== linkWinRef.current || !isAllowedParent(e.origin)) return;
+      const data = e.data as { type?: string; count?: number };
+      if (data?.type === "utubeflow:hello") {
+        linkOriginRef.current = e.origin;
+        setLinkStatus("connected");
+        linkWinRef.current.postMessage({ type: "videocut:linked" }, e.origin);
+      } else if (data?.type === "utubeflow:received") {
+        setDoneMessage(`${data.count ?? 0} clip${data.count === 1 ? "" : "s"} added to your UTubeFlow upload list`);
+      }
+    };
+    window.addEventListener("message", onMessage);
+
+    // The user may close the UTubeFlow tab at any time.
+    const closedCheck = window.setInterval(() => {
+      if (linkWinRef.current?.closed) {
+        linkWinRef.current = null;
+        linkOriginRef.current = null;
+        setLinkStatus("idle");
+      }
+    }, 1500);
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.clearInterval(closedCheck);
+    };
+  }, []);
+
+  const connectUtubeflow = () => {
+    // Already open: bring it to the front instead of opening another tab.
+    if (linkWinRef.current && !linkWinRef.current.closed) {
+      linkWinRef.current.focus();
+      return;
+    }
+    const kind = selectedStyle === "original" ? "video" : "short";
+    // No "noopener": UTubeFlow needs window.opener to say hello. It only ever talks to our origin.
+    const w = window.open(`${UTUBEFLOW_URL}/upload/${kind}?from=videocut`, UTUBEFLOW_TAB);
+    if (!w) {
+      alert("Your browser blocked the UTubeFlow tab. Allow pop-ups for this site and press Connect again.");
+      return;
+    }
+    linkWinRef.current = w;
+    linkOriginRef.current = null;
+    setLinkStatus("connecting");
+  };
+
+  const disconnectUtubeflow = () => {
+    linkWinRef.current = null;
+    linkOriginRef.current = null;
+    setLinkStatus("idle");
+  };
 
   // Map simplified style to processing options
   const getProcessingOptions = useCallback((): ProcessingOptions => {
@@ -745,7 +807,7 @@ export function VideoCutStudio() {
 
   // Batch export: download all parts as a ZIP, or send them to UTubeFlow when embedded
   const processAndDownloadAll = async (target: "zip" | "utubeflow" = "zip") => {
-    if (target === "utubeflow" && !embedParent) return;
+    if (target === "utubeflow" && !embedParent && !linkOriginRef.current) return;
     const selectedSegments = segments.filter((s) => s.selected);
     if (selectedSegments.length === 0) {
       alert("Please select at least one part to download.");
@@ -866,13 +928,30 @@ export function VideoCutStudio() {
         );
       }
 
-      if (!abortCtrl.signal.aborted && target === "utubeflow" && embedParent) {
+      // Where the clips go: the UTubeFlow page we are embedded in, or the UTubeFlow tab we connected to.
+      const linkWin = linkWinRef.current;
+      const sendTo =
+        embedParent
+          ? { win: window.parent, origin: embedParent }
+          : linkWin && !linkWin.closed && linkOriginRef.current
+            ? { win: linkWin, origin: linkOriginRef.current }
+            : null;
+      const kind = embedKind ?? (opts.aspectRatio === "original" ? "video" : "short");
+
+      if (!abortCtrl.signal.aborted && target === "utubeflow" && sendTo) {
         setStatusMessage("Sending clips to UTubeFlow...");
         setOverallProgress(100);
-        window.parent.postMessage({ type: "videocut:clips", clips }, embedParent);
+        sendTo.win.postMessage({ type: "videocut:clips", kind, clips }, sendTo.origin);
+        if (!embedParent) sendTo.win.focus();
         setStatusMessage(`Sent ${clips.length} clips to UTubeFlow.`);
         setDoneMessage(`Sent ${clips.length} clip${clips.length > 1 ? "s" : ""} to UTubeFlow`);
       } else if (!abortCtrl.signal.aborted) {
+        // The UTubeFlow tab was closed while cutting: keep the work as a ZIP instead of losing it.
+        if (target === "utubeflow") {
+          for (const c of clips) zip.file(c.name, c.blob);
+          disconnectUtubeflow();
+          alert("The UTubeFlow tab was closed, so your clips are downloaded as a ZIP instead. Press Connect UTubeFlow to link it again.");
+        }
         setStatusMessage("Zipping all parts...");
         setOverallProgress(99);
 
@@ -1844,6 +1923,9 @@ export function VideoCutStudio() {
                       `${selectedCount} of ${segments.length} ${cutMode === "parts" ? "parts" : "clips"} · ${formatTime(perClip)} each`}
                   </div>
                   <div className="hidden sm:block text-xs text-[color:var(--muted)] truncate">
+                    {linkStatus === "connected" && !embedParent && (
+                      <span className="text-emerald-500 font-medium">● Connected to UTubeFlow · </span>
+                    )}
                     {STYLE_LABEL[selectedStyle]} · {voiceLabel}
                     {isVertical ? ` · ${resolution}` : " · lossless"}
                   </div>
@@ -1873,16 +1955,57 @@ export function VideoCutStudio() {
                     </span>
                   </button>
                 </div>
+              ) : linkStatus === "connected" ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={disconnectUtubeflow}
+                    disabled={isProcessing}
+                    className="btn btn-secondary h-10 sm:h-11 w-10 sm:w-11 p-0"
+                    title="Disconnect UTubeFlow"
+                    aria-label="Disconnect UTubeFlow"
+                  >
+                    <Unlink className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => processAndDownloadAll("zip")}
+                    disabled={isProcessing || selectedCount === 0}
+                    className="btn btn-secondary h-10 sm:h-11 w-10 sm:w-11 p-0"
+                    title="Download as ZIP instead"
+                    aria-label="Download as ZIP instead"
+                  >
+                    <FolderArchive className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => processAndDownloadAll("utubeflow")}
+                    disabled={isProcessing || selectedCount === 0}
+                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span className="sm:hidden">Send ({selectedCount})</span>
+                    <span className="hidden sm:inline">Send {selectedCount} to UTubeFlow</span>
+                  </button>
+                </div>
               ) : (
-                <button
-                  onClick={() => processAndDownloadAll("zip")}
-                  disabled={isProcessing || selectedCount === 0}
-                  className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm shrink-0"
-                >
-                  <FolderArchive className="w-4 h-4" />
-                  <span className="sm:hidden">ZIP ({selectedCount})</span>
-                  <span className="hidden sm:inline">Download {selectedCount} as ZIP</span>
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={connectUtubeflow}
+                    disabled={isProcessing}
+                    className="btn btn-secondary h-10 sm:h-11 px-3 sm:px-4 text-[13px] sm:text-sm"
+                    title="Open UTubeFlow and send your clips straight to its upload list"
+                  >
+                    {linkStatus === "connecting" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                    <span className="hidden sm:inline">{linkStatus === "connecting" ? "Connecting UTubeFlow…" : "Connect UTubeFlow"}</span>
+                  </button>
+                  <button
+                    onClick={() => processAndDownloadAll("zip")}
+                    disabled={isProcessing || selectedCount === 0}
+                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm"
+                  >
+                    <FolderArchive className="w-4 h-4" />
+                    <span className="sm:hidden">ZIP ({selectedCount})</span>
+                    <span className="hidden sm:inline">Download {selectedCount} as ZIP</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
