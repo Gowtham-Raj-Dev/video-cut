@@ -2,9 +2,11 @@ import { VideoCutStudio } from "@/components/VideoCutStudio";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { HowItWorksSection } from "@/components/HowItWorksSection";
 import { FaqSection } from "@/components/FaqSection";
+import { UTubeFlowSection } from "@/components/UTubeFlowSection";
+import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { homeJsonLd } from "@/lib/seo";
-import { Scissors, Smartphone, FolderArchive, ShieldCheck, Languages } from "lucide-react";
+import { Scissors, Smartphone, FolderArchive, ShieldCheck, Languages, ArrowRight } from "lucide-react";
 
 export default function Home() {
   return (
@@ -48,6 +50,18 @@ export default function Home() {
             </span>
           ))}
         </div>
+
+        <Link
+          href="#utubeflow"
+          className="inline-flex items-center gap-2 pl-1.5 pr-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium bg-[color:var(--brand-soft)] text-[color:var(--brand-fg)] border border-[color:var(--brand-line)] transition hover:-translate-y-0.5"
+        >
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-white bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)]">
+            New
+          </span>
+          <span className="sm:hidden">Send clips straight to UTubeFlow</span>
+          <span className="hidden sm:inline">Connect UTubeFlow: send clips straight to YouTube scheduling</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </section>
 
       {/* Studio */}
@@ -56,6 +70,7 @@ export default function Home() {
       </div>
 
       <div className="site-chrome">
+        <UTubeFlowSection />
         <FeaturesSection />
         <HowItWorksSection />
         <FaqSection />

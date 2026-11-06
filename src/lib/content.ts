@@ -40,7 +40,11 @@ export const FAQS = [
   },
   {
     q: "Are my videos uploaded anywhere?",
-    a: "Never. Cutting, framing and ZIP packaging all happen inside your browser. Your files never leave your computer.",
+    a: "Never by VideoCut. Cutting, framing and ZIP packaging all happen inside your browser. Clips only leave your computer if you choose Send to UTubeFlow and then upload them to your own YouTube channel from there.",
+  },
+  {
+    q: "Can I send my clips straight to YouTube?",
+    a: "Yes, with UTubeFlow, our free YouTube bulk uploader and scheduler. Press Connect UTubeFlow in VideoCut's bottom bar, cut your video, then press Send to UTubeFlow. The clips land in UTubeFlow's upload list with titles, ready to upload and schedule. Inside UTubeFlow you can also open VideoCut from the Upload page with Cut into Shorts.",
   },
   {
     q: "Which formats and sizes are supported?",

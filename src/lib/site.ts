@@ -25,6 +25,7 @@ export const OG_IMAGE = {
 
 export const NAV_LINKS = [
   { label: "Studio", href: "#studio" },
+  { label: "UTubeFlow", href: "#utubeflow" },
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "FAQ", href: "#faq" },
