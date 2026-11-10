@@ -31,6 +31,8 @@ import {
   Send,
   Link2,
   Unlink,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -53,7 +55,7 @@ import {
   drawFramedFrame,
   renderSegmentWithCanvas,
 } from "@/lib/video-processor";
-import { sliceVideoLossless, extractAudioPreview } from "@/lib/ffmpeg-processor";
+import { sliceVideoLossless, extractAudioPreview, prepareInputFile, cleanupInputFile } from "@/lib/ffmpeg-processor";
 import {
   AudioTrackInfo,
   parseMediaMetadata,
@@ -71,7 +73,7 @@ const MIME_BY_EXT: Record<string, string> = {
   mov: "video/quicktime",
 };
 
-type CutMode = "parts" | "duration" | "trim";
+type CutMode = "parts" | "duration" | "custom" | "trim";
 type StyleKey = "shorts_blur" | "shorts_black" | "original" | "shorts_crop";
 
 const STYLE_OPTIONS: { key: StyleKey; title: string; desc: string }[] = [
@@ -236,6 +238,9 @@ export function VideoCutStudio() {
       const data = e.data as { type?: string } & Partial<EmbedInit> & { count?: number };
       if (data?.type === "utubeflow:init") {
         setEmbedParent(e.origin);
+        try {
+          window.parent.postMessage({ type: "videocut:ready" }, e.origin);
+        } catch {}
         const kind = data.kind === "short" ? "short" : "video";
         setEmbedKind(kind);
         if (kind === "short") {
@@ -252,9 +257,20 @@ export function VideoCutStudio() {
     };
 
     window.addEventListener("message", onMessage);
-    // "ready" carries no data, so "*" is safe; the parent replies with init from its own origin.
+    // Send "ready" immediately and repeat a few times during initial seconds so handshake is never missed
     window.parent.postMessage({ type: "videocut:ready" }, "*");
-    return () => window.removeEventListener("message", onMessage);
+    const retryInterval = setInterval(() => {
+      try {
+        window.parent.postMessage({ type: "videocut:ready" }, "*");
+      } catch {}
+    }, 1000);
+    const stopRetry = setTimeout(() => clearInterval(retryInterval), 6000);
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      clearInterval(retryInterval);
+      clearTimeout(stopRetry);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -516,6 +532,8 @@ export function VideoCutStudio() {
   // Rebuild Segments based on active mode
   const rebuildSegments = useCallback(
     (dur: number, mode: CutMode, parts: number, segLen: number, start: number, end: number) => {
+      if (mode === "custom") return; // Retain user's custom adjustments
+
       let rawSegments: { id: string; index: number; title: string; startTime: number; endTime: number; duration: number }[] = [];
 
       if (mode === "parts") {
@@ -546,9 +564,133 @@ export function VideoCutStudio() {
     []
   );
 
-  // Recalculate segments when mode, parts, or duration changes
+  // Manual / Custom timing and clip metadata helpers
+  const updateSegmentTitle = (id: string, title: string) => {
+    setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, title } : s)));
+  };
+
+  const updateSegmentDescription = (id: string, description: string) => {
+    setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, description } : s)));
+  };
+
+  const updateSegmentDuration = (idx: number, newDurSec: number) => {
+    if (newDurSec <= 0) return;
+    setCutMode("custom");
+    setSegments((prev) => {
+      const copy = [...prev];
+      if (!copy[idx]) return prev;
+      const totalDur = metadata?.duration || 10000;
+      const targetDur = Math.max(1, Math.min(newDurSec, totalDur - copy[idx].startTime));
+      copy[idx] = {
+        ...copy[idx],
+        duration: targetDur,
+        endTime: copy[idx].startTime + targetDur,
+      };
+
+      // Shift downstream segments sequentially
+      for (let j = idx + 1; j < copy.length; j++) {
+        const prevEnd = copy[j - 1].endTime;
+        const curDur = copy[j].duration;
+        const newEnd = Math.min(totalDur, prevEnd + curDur);
+        copy[j] = {
+          ...copy[j],
+          startTime: prevEnd,
+          endTime: newEnd,
+          duration: Math.max(0.1, newEnd - prevEnd),
+        };
+      }
+      return copy;
+    });
+  };
+
+  const splitAtCurrentTime = () => {
+    const video = videoRef.current;
+    const splitTime = video ? video.currentTime : currentTime;
+    if (splitTime <= 0 || (metadata && splitTime >= metadata.duration - 0.5)) return;
+
+    setCutMode("custom");
+    setSegments((prev) => {
+      const targetIdx = prev.findIndex((s) => splitTime > s.startTime + 0.5 && splitTime < s.endTime - 0.5);
+      if (targetIdx === -1) return prev;
+
+      const targetSeg = prev[targetIdx];
+      const part1: VideoSegment = {
+        ...targetSeg,
+        id: `seg-cust-${Date.now()}-1`,
+        endTime: splitTime,
+        duration: splitTime - targetSeg.startTime,
+      };
+      const part2: VideoSegment = {
+        ...targetSeg,
+        id: `seg-cust-${Date.now()}-2`,
+        title: `Part ${targetSeg.index + 1}`,
+        startTime: splitTime,
+        duration: targetSeg.endTime - splitTime,
+      };
+
+      const next = [...prev.slice(0, targetIdx), part1, part2, ...prev.slice(targetIdx + 1)];
+      return next.map((s, i) => ({
+        ...s,
+        index: i + 1,
+        title: s.title.startsWith("Part ") ? `Part ${i + 1}` : s.title,
+      }));
+    });
+  };
+
+  const addPart = () => {
+    if (!metadata) return;
+    setCutMode("custom");
+    setSegments((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.duration <= 4) return prev;
+      const half = Math.floor(last.duration / 2);
+      const part1: VideoSegment = {
+        ...last,
+        endTime: last.startTime + half,
+        duration: half,
+      };
+      const part2: VideoSegment = {
+        id: `seg-cust-${Date.now()}`,
+        index: prev.length + 1,
+        title: `Part ${prev.length + 1}`,
+        startTime: last.startTime + half,
+        endTime: last.endTime,
+        duration: last.duration - half,
+        selected: true,
+        status: "idle",
+      };
+      return [...prev.slice(0, -1), part1, part2];
+    });
+  };
+
+  const removeSegment = (idx: number) => {
+    setCutMode("custom");
+    setSegments((prev) => {
+      if (prev.length <= 1) return prev;
+      const copy = [...prev];
+      const removed = copy[idx];
+      copy.splice(idx, 1);
+      if (idx > 0) {
+        copy[idx - 1] = {
+          ...copy[idx - 1],
+          endTime: removed.endTime,
+          duration: removed.endTime - copy[idx - 1].startTime,
+        };
+      } else if (copy.length > 0) {
+        copy[0] = {
+          ...copy[0],
+          startTime: removed.startTime,
+          duration: copy[0].endTime - removed.startTime,
+        };
+      }
+      return copy.map((s, i) => ({ ...s, index: i + 1, title: s.title.startsWith("Part ") ? `Part ${i + 1}` : s.title }));
+    });
+  };
+
+  // Recalculate segments when mode, parts, or duration changes (except in custom mode)
   useEffect(() => {
-    if (metadata) {
+    if (metadata && cutMode !== "custom") {
       rebuildSegments(metadata.duration, cutMode, partsCount, segmentLength, trimStart, trimEnd);
     }
   }, [cutMode, partsCount, segmentLength, trimStart, trimEnd, metadata, rebuildSegments]);
@@ -830,7 +972,15 @@ export function VideoCutStudio() {
     const niceTitle = safeBaseName.replace(/\[[^\]]*\]/g, "").replace(/[_.]+/g, " ").replace(/\s+/g, " ").trim() || "Video";
     const opts = getProcessingOptions();
 
+    let sharedInputName = "";
     try {
+      try {
+        const prep = await prepareInputFile(file, (msg) => setStatusMessage(msg));
+        sharedInputName = prep.inputName;
+      } catch (prepErr) {
+        console.warn("Fast input preparation fallback to per-slice mode:", prepErr);
+      }
+
       for (let i = 0; i < selectedSegments.length; i++) {
         if (abortCtrl.signal.aborted) break;
 
@@ -848,7 +998,7 @@ export function VideoCutStudio() {
           try {
             const activeLang = selectedAudioTrack >= 0 && audioTracks[selectedAudioTrack] ? audioTracks[selectedAudioTrack].languageName : "Tamil";
             setStatusMessage(`Fast slicing ${seg.title} with ${activeLang} audio (~1s)...`);
-            const sliceRes = await sliceVideoLossless(file, seg, selectedAudioTrack, (msg) => setStatusMessage(msg), true);
+            const sliceRes = await sliceVideoLossless(file, seg, selectedAudioTrack, (msg) => setStatusMessage(msg), true, sharedInputName);
             blob = sliceRes.blob;
             ext = sliceRes.extension;
             setCurrentProgress(100);
@@ -874,7 +1024,7 @@ export function VideoCutStudio() {
           try {
             const activeLang = selectedAudioTrack >= 0 && audioTracks[selectedAudioTrack] ? audioTracks[selectedAudioTrack].languageName : "Tamil";
             setStatusMessage(`Extracting ${activeLang} audio clip for ${seg.title}...`);
-            const sliceRes = await sliceVideoLossless(file, seg, selectedAudioTrack, (msg) => setStatusMessage(msg), true);
+            const sliceRes = await sliceVideoLossless(file, seg, selectedAudioTrack, (msg) => setStatusMessage(msg), true, sharedInputName);
             tempClipUrl = URL.createObjectURL(sliceRes.blob);
 
             setStatusMessage(`Rendering 9:16 Shorts with ${activeLang} audio (${seg.title})...`);
@@ -917,7 +1067,8 @@ export function VideoCutStudio() {
             name: filename,
             type: blob.type || MIME_BY_EXT[ext] || "video/mp4",
             blob,
-            title: `${niceTitle} - Part ${seg.index}`.slice(0, 100),
+            title: (seg.title || `${niceTitle} - Part ${seg.index}`).slice(0, 100),
+            description: seg.description || "",
             index: seg.index,
             duration: seg.duration,
           });
@@ -952,6 +1103,11 @@ export function VideoCutStudio() {
           disconnectUtubeflow();
           alert("The UTubeFlow tab was closed, so your clips are downloaded as a ZIP instead. Press Connect UTubeFlow to link it again.");
         }
+
+        // Add metadata text file with all parts, titles and descriptions
+        const infoLines = selectedSegments.map((s) => `Part ${s.index}: ${s.title}\nDuration: ${Math.round(s.duration)}s (${formatTime(s.startTime)} - ${formatTime(s.endTime)})\nDescription: ${s.description || "None"}\n${"-".repeat(40)}`).join("\n\n");
+        zip.file("clips_info.txt", infoLines);
+
         setStatusMessage("Zipping all parts...");
         setOverallProgress(99);
 
@@ -974,6 +1130,9 @@ export function VideoCutStudio() {
         alert(`Export stopped: ${err.message}`);
       }
     } finally {
+      if (sharedInputName) {
+        await cleanupInputFile(sharedInputName);
+      }
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
@@ -1331,9 +1490,20 @@ export function VideoCutStudio() {
                       <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[color:var(--fg)] ring-2 ring-[color:var(--card)]" />
                     </div>
                   </div>
-                  <div className="flex justify-between text-[10px] font-mono text-[color:var(--subtle)]">
+                  <div className="flex justify-between items-center text-[10px] font-mono text-[color:var(--subtle)]">
                     <span>00:00</span>
-                    <span>Click or drag to scrub · {segments.length} parts</span>
+                    <div className="flex items-center gap-2">
+                      <span>Click or drag to scrub · {segments.length} parts</span>
+                      <button
+                        type="button"
+                        onClick={splitAtCurrentTime}
+                        className="btn btn-ghost !h-6 !px-2 !py-0 !text-[10px] text-[color:var(--brand-fg)] bg-[color:var(--brand-soft)] hover:opacity-90"
+                        title="Split video at current time"
+                      >
+                        <Scissors className="w-3 h-3" />
+                        Split at {formatTime(currentTime)}
+                      </button>
+                    </div>
                     <span>{formatTime(duration)}</span>
                   </div>
                 </div>
@@ -1492,12 +1662,17 @@ export function VideoCutStudio() {
                 </div>
 
                 <div className="p-4 sm:p-5 space-y-4">
-                  <div className="segmented grid-cols-2">
+                  <div className="segmented grid-cols-3">
                     <div
                       className="segmented-thumb"
                       style={{
-                        width: "calc(50% - 4px)",
-                        transform: cutMode === "duration" ? "translateX(100%)" : "translateX(0)",
+                        width: "calc(33.333% - 4px)",
+                        transform:
+                          cutMode === "parts"
+                            ? "translateX(0)"
+                            : cutMode === "duration"
+                            ? "translateX(100%)"
+                            : "translateX(200%)",
                       }}
                     />
                     <button
@@ -1520,9 +1695,51 @@ export function VideoCutStudio() {
                       }}
                     >
                       <Sparkles className="w-4 h-4" />
-                      Shorts clips
+                      Shorts (30s)
+                    </button>
+                    <button
+                      type="button"
+                      data-active={cutMode === "custom"}
+                      onClick={() => {
+                        setCutMode("custom");
+                      }}
+                    >
+                      <SlidersHorizontal className="w-4 h-4" />
+                      Manual Cut
                     </button>
                   </div>
+
+                  {cutMode === "custom" && (
+                    <div key="custom" className="space-y-3 animate-fade-in">
+                      <div className="rounded-xl bg-[color:var(--brand-soft)]/50 border border-[color:var(--brand-line)] p-3 text-xs space-y-2">
+                        <div className="font-semibold text-[color:var(--brand-fg)] flex items-center gap-1.5">
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                          Manual Part Durations &amp; Custom Split
+                        </div>
+                        <p className="text-[color:var(--muted)]">
+                          Set custom duration for each part (e.g. Part 1 = 30s, Part 2 = 33s, Part 3 = 40s) below, or split anywhere while playing the video.
+                        </p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={splitAtCurrentTime}
+                            className="btn btn-primary h-8 px-3 text-xs"
+                          >
+                            <Scissors className="w-3.5 h-3.5" />
+                            Split at Playhead ({formatTime(currentTime)})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={addPart}
+                            className="btn btn-secondary h-8 px-3 text-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add Part
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {cutMode === "parts" && (
                     <div key="parts" className="space-y-3 animate-fade-in">
@@ -1768,53 +1985,127 @@ export function VideoCutStudio() {
 
           {/* ---------------- Parts ---------------- */}
           <div className="panel">
-            <div className="panel-head flex-wrap">
+            <div className="panel-head flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <span className="step-num">4</span>
                 <div>
                   <h3 className="font-display font-semibold text-[15px] text-[color:var(--fg)]">
                     Your parts <span className="text-[color:var(--muted)] font-normal">({segments.length})</span>
                   </h3>
-                  <p className="text-xs text-[color:var(--muted)]">Preview, untick to skip, or save one at a time</p>
+                  <p className="text-xs text-[color:var(--muted)]">Edit titles, descriptions &amp; durations individually</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={() => setAllSelected(true)} className="btn btn-ghost h-8 px-2.5 text-xs">
                   Select all
                 </button>
                 <button onClick={() => setAllSelected(false)} className="btn btn-ghost h-8 px-2.5 text-xs">
                   Clear
                 </button>
+                <button onClick={addPart} className="btn btn-secondary h-8 px-2.5 text-xs">
+                  <Plus className="w-3.5 h-3.5" /> Add Part
+                </button>
+              </div>
+            </div>
+
+            {/* Top Export Bar in normal flow */}
+            <div className="p-4 pb-0 sm:p-5 sm:pb-0">
+              <div className="panel !rounded-2xl p-2.5 sm:p-3 pl-3.5 sm:pl-4 flex flex-row items-center justify-between gap-3 bg-[color:var(--card-alt)] border border-[color:var(--border)]">
+                <div className="min-w-0 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[color:var(--brand-soft)] text-[color:var(--brand-fg)] flex items-center justify-center shrink-0">
+                    {doneMessage ? <CircleCheck className="w-4 h-4 text-emerald-500" /> : <MonitorPlay className="w-4 h-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-semibold text-[color:var(--fg)] truncate">
+                      {doneMessage || `${selectedCount} of ${segments.length} clips ready · ${formatTime(perClip)} each`}
+                    </div>
+                    <div className="hidden sm:block text-[11px] text-[color:var(--muted)] truncate">
+                      {STYLE_LABEL[selectedStyle]} · {voiceLabel}
+                    </div>
+                  </div>
+                </div>
+
+                {embedParent ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => processAndDownloadAll("zip")}
+                      disabled={isProcessing || selectedCount === 0}
+                      className="btn btn-secondary h-9 w-9 p-0"
+                      title="Download as ZIP instead"
+                      aria-label="Download as ZIP instead"
+                    >
+                      <FolderArchive className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => processAndDownloadAll("utubeflow")}
+                      disabled={isProcessing || selectedCount === 0}
+                      className="btn btn-primary h-9 px-3 sm:px-4 text-xs font-semibold"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send {selectedCount} to UTubeFlow</span>
+                    </button>
+                  </div>
+                ) : linkStatus === "connected" ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => processAndDownloadAll("zip")}
+                      disabled={isProcessing || selectedCount === 0}
+                      className="btn btn-secondary h-9 w-9 p-0"
+                      title="Download as ZIP instead"
+                    >
+                      <FolderArchive className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => processAndDownloadAll("utubeflow")}
+                      disabled={isProcessing || selectedCount === 0}
+                      className="btn btn-primary h-9 px-3 sm:px-4 text-xs font-semibold"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send {selectedCount} to UTubeFlow</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={connectUtubeflow}
+                      disabled={isProcessing}
+                      className="btn btn-secondary h-9 px-3 text-xs"
+                      title="Connect UTubeFlow"
+                    >
+                      {linkStatus === "connecting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
+                      <span className="hidden sm:inline">Connect UTubeFlow</span>
+                    </button>
+                    <button
+                      onClick={() => processAndDownloadAll("zip")}
+                      disabled={isProcessing || selectedCount === 0}
+                      className="btn btn-primary h-9 px-3 sm:px-4 text-xs font-semibold"
+                    >
+                      <FolderArchive className="w-3.5 h-3.5" />
+                      <span>ZIP ({selectedCount})</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="p-4 sm:p-5">
-              <div
-                className={`grid gap-3 ${
-                  isVertical
-                    ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                }`}
-              >
+              <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {segments.map((seg, idx) => {
                   const isActive = activeSegmentIndex === idx;
                   return (
                     <div
                       key={seg.id}
-                      className={`group rounded-2xl border bg-[color:var(--card)] overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] ${
+                      className={`group rounded-2xl border bg-[color:var(--card)] overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[var(--shadow-md)] ${
                         isActive
                           ? "border-[color:var(--brand)] ring-2 ring-[color:var(--brand-soft)]"
                           : seg.selected
                           ? "border-[color:var(--border)]"
-                          : "border-[color:var(--border)] opacity-55 hover:opacity-90"
+                          : "border-[color:var(--border)] opacity-60 hover:opacity-90"
                       }`}
-                      style={{ animation: `fadeUp 0.45s var(--ease) ${Math.min(idx, 12) * 0.03}s both` }}
                     >
-                      {/* Thumbnail */}
+                      {/* Thumbnail & Preview area */}
                       <div
-                        className={`relative bg-[color:var(--monitor)] overflow-hidden cursor-pointer ${
-                          isVertical ? "aspect-[9/16]" : "aspect-video"
-                        }`}
+                        className="relative bg-[color:var(--monitor)] h-36 overflow-hidden cursor-pointer shrink-0"
                         onClick={() => previewSegment(idx)}
                       >
                         {seg.thumbnailUrl ? (
@@ -1822,12 +2113,12 @@ export function VideoCutStudio() {
                           <img
                             src={seg.thumbnailUrl}
                             alt={seg.title}
-                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 animate-fade-in"
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
                         ) : (
                           <div className="absolute inset-0 skeleton opacity-40" />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
 
                         <button
                           type="button"
@@ -1843,19 +2134,34 @@ export function VideoCutStudio() {
                           </span>
                         </button>
 
-                        {seg.status === "ready" && (
-                          <span className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-semibold text-white bg-emerald-500/90 px-1.5 py-0.5 rounded-md">
-                            <Check className="w-3 h-3" strokeWidth={3} /> Saved
-                          </span>
-                        )}
-                        {seg.status === "rendering" && (
-                          <span className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-semibold text-white bg-black/60 backdrop-blur px-1.5 py-0.5 rounded-md">
-                            <Loader2 className="w-3 h-3 animate-spin" /> Rendering
-                          </span>
-                        )}
+                        <div className="absolute top-2 right-2 flex items-center gap-1">
+                          {seg.status === "ready" && (
+                            <span className="flex items-center gap-1 text-[10px] font-semibold text-white bg-emerald-500/90 px-1.5 py-0.5 rounded-md">
+                              <Check className="w-3 h-3" strokeWidth={3} /> Saved
+                            </span>
+                          )}
+                          {seg.status === "rendering" && (
+                            <span className="flex items-center gap-1 text-[10px] font-semibold text-white bg-black/60 backdrop-blur px-1.5 py-0.5 rounded-md">
+                              <Loader2 className="w-3 h-3 animate-spin" /> Rendering
+                            </span>
+                          )}
+                          {segments.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeSegment(idx);
+                              }}
+                              className="w-6 h-6 rounded bg-black/60 backdrop-blur text-white/70 hover:text-red-400 flex items-center justify-center transition"
+                              title="Delete this split / merge"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
 
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <span className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-md ring-1 ring-white/30 flex items-center justify-center">
+                          <span className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md ring-1 ring-white/30 flex items-center justify-center">
                             {isActive && isPlaying ? (
                               <Pause className="w-4 h-4 text-white fill-white" />
                             ) : (
@@ -1864,42 +2170,80 @@ export function VideoCutStudio() {
                           </span>
                         </div>
 
-                        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-1">
-                          <span className="font-display text-[13px] font-semibold text-white drop-shadow">{seg.title}</span>
-                          <span className="font-mono text-[10px] font-semibold text-white bg-black/50 backdrop-blur px-1.5 py-0.5 rounded">
-                            {formatTime(seg.duration)}
-                          </span>
+                        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white text-[11px] font-mono">
+                          <span className="font-semibold bg-black/60 px-1.5 py-0.5 rounded backdrop-blur">Part {seg.index}</span>
+                          <span className="bg-black/60 px-1.5 py-0.5 rounded backdrop-blur">{formatTime(seg.duration)}</span>
                         </div>
                       </div>
 
-                      {/* Meta + actions */}
-                      <div className="p-2.5 flex items-center justify-between gap-2">
-                        <span className="font-mono text-[10px] text-[color:var(--muted)] truncate">
-                          {formatTime(seg.startTime)} – {formatTime(seg.endTime)}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0">
+                      {/* Editable Details Form */}
+                      <div className="p-3 space-y-2.5 flex-1 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          {/* Title Input */}
+                          <div>
+                            <label className="block text-[10px] uppercase font-bold tracking-wider text-[color:var(--muted)] mb-1">
+                              Title
+                            </label>
+                            <input
+                              type="text"
+                              value={seg.title}
+                              onChange={(e) => updateSegmentTitle(seg.id, e.target.value)}
+                              placeholder={`Part ${seg.index} Title`}
+                              className="w-full text-xs font-semibold bg-[color:var(--card-alt)] border border-[color:var(--border)] rounded-lg px-2.5 py-1.5 text-[color:var(--fg)] outline-none focus:border-[color:var(--brand)] transition"
+                            />
+                          </div>
+
+                          {/* Duration & Start/End Controls */}
+                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[color:var(--card-alt)] border border-[color:var(--border)] text-[11px]">
+                            <span className="font-mono text-[color:var(--muted)]">
+                              {formatTime(seg.startTime)} – {formatTime(seg.endTime)}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-[color:var(--muted)] uppercase font-semibold">Length:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="999"
+                                value={Math.round(seg.duration)}
+                                onChange={(e) => updateSegmentDuration(idx, Number(e.target.value))}
+                                className="w-12 text-center text-xs font-mono font-semibold bg-[color:var(--card)] border border-[color:var(--border)] rounded px-1 py-0.5 text-[color:var(--fg)] outline-none focus:border-[color:var(--brand)]"
+                              />
+                              <span className="text-[10px] font-mono text-[color:var(--muted)]">s</span>
+                            </div>
+                          </div>
+
+                          {/* Description Input */}
+                          <div>
+                            <label className="block text-[10px] uppercase font-bold tracking-wider text-[color:var(--muted)] mb-1">
+                              Description
+                            </label>
+                            <textarea
+                              value={seg.description || ""}
+                              onChange={(e) => updateSegmentDescription(seg.id, e.target.value)}
+                              rows={2}
+                              placeholder="Description for this clip..."
+                              className="w-full text-xs bg-[color:var(--card-alt)] border border-[color:var(--border)] rounded-lg p-2 text-[color:var(--fg)] resize-none placeholder:text-[color:var(--muted)]/50 outline-none focus:border-[color:var(--brand)] transition"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Card bottom action */}
+                        <div className="pt-1 flex items-center justify-between border-t border-[color:var(--border)]">
                           <button
                             type="button"
                             onClick={() => previewSegment(idx)}
-                            className="btn btn-ghost w-7 h-7 p-0 rounded-lg"
-                            aria-label={`Preview ${seg.title}`}
-                            title="Preview"
+                            className="btn btn-ghost !h-7 !px-2 text-xs text-[color:var(--muted)] hover:text-[color:var(--fg)]"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" /> Preview
                           </button>
                           <button
                             type="button"
                             disabled={seg.status === "rendering"}
                             onClick={() => downloadSingleSegment(seg)}
-                            className="btn btn-ghost w-7 h-7 p-0 rounded-lg hover:!text-[color:var(--brand)]"
-                            aria-label={`Download ${seg.title}`}
-                            title="Download this part"
+                            className="btn btn-ghost !h-7 !px-2 text-xs text-[color:var(--muted)] hover:!text-[color:var(--brand)]"
+                            title="Download single clip"
                           >
-                            {seg.status === "rendering" ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Download className="w-3.5 h-3.5" />
-                            )}
+                            <Download className="w-3.5 h-3.5" /> Save Part
                           </button>
                         </div>
                       </div>
@@ -1910,9 +2254,9 @@ export function VideoCutStudio() {
             </div>
           </div>
 
-          {/* ---------------- Export bar (sticky) ---------------- */}
-          <div className="sticky bottom-4 z-30">
-            <div className="panel !rounded-2xl p-2.5 sm:p-3.5 pl-3.5 sm:pl-5 flex flex-row items-center justify-between gap-3 backdrop-blur-xl !bg-[color:var(--card)]/90 shadow-[var(--shadow-lg)]">
+          {/* ---------------- Bottom Export bar (Non-sticky, normal flow) ---------------- */}
+          <div className="mt-4">
+            <div className="panel !rounded-2xl p-3 sm:p-4 pl-4 sm:pl-5 flex flex-row items-center justify-between gap-3 bg-[color:var(--card)] border border-[color:var(--border)] shadow-[var(--shadow-md)]">
               <div className="min-w-0 flex items-center gap-3">
                 <div className="hidden sm:flex w-10 h-10 rounded-xl bg-[color:var(--brand-soft)] border border-[color:var(--brand-line)] text-[color:var(--brand-fg)] items-center justify-center shrink-0">
                   {doneMessage ? <CircleCheck className="w-5 h-5 text-emerald-500" /> : <MonitorPlay className="w-5 h-5" />}
@@ -1946,7 +2290,7 @@ export function VideoCutStudio() {
                   <button
                     onClick={() => processAndDownloadAll("utubeflow")}
                     disabled={isProcessing || selectedCount === 0}
-                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm"
+                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm font-semibold"
                   >
                     <Send className="w-4 h-4" />
                     <span className="sm:hidden">Send ({selectedCount})</span>
@@ -1978,7 +2322,7 @@ export function VideoCutStudio() {
                   <button
                     onClick={() => processAndDownloadAll("utubeflow")}
                     disabled={isProcessing || selectedCount === 0}
-                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm"
+                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm font-semibold"
                   >
                     <Send className="w-4 h-4" />
                     <span className="sm:hidden">Send ({selectedCount})</span>
@@ -1999,7 +2343,7 @@ export function VideoCutStudio() {
                   <button
                     onClick={() => processAndDownloadAll("zip")}
                     disabled={isProcessing || selectedCount === 0}
-                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm"
+                    className="btn btn-primary h-10 sm:h-11 px-4 sm:px-6 text-[13px] sm:text-sm font-semibold"
                   >
                     <FolderArchive className="w-4 h-4" />
                     <span className="sm:hidden">ZIP ({selectedCount})</span>

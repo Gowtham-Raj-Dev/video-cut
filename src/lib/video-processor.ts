@@ -277,6 +277,20 @@ export async function renderSegmentWithCanvas(
     video.src = sourceUrl;
     video.muted = false; // Need audio for capture
     video.volume = 1;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    // Attaching hidden element to DOM prevents browser autoplay restrictions from rejecting unmuted play()
+    video.style.position = 'fixed';
+    video.style.top = '-9999px';
+    video.style.left = '-9999px';
+    video.style.width = '1px';
+    video.style.height = '1px';
+    video.style.opacity = '0';
+    video.style.pointerEvents = 'none';
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.appendChild(video);
+    }
 
     // Use a container canvas
     const canvas = document.createElement('canvas');
@@ -291,6 +305,7 @@ export async function renderSegmentWithCanvas(
 
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!ctx) {
+      if (video.parentNode) video.parentNode.removeChild(video);
       return reject(new Error('Failed to initialize 2D canvas context'));
     }
 
@@ -303,6 +318,9 @@ export async function renderSegmentWithCanvas(
       video.pause();
       video.removeAttribute('src');
       video.load();
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
     };
 
     if (signal) {
@@ -412,8 +430,19 @@ export async function renderSegmentWithCanvas(
       video.play().then(() => {
         renderLoop();
       }).catch((err) => {
-        cleanup();
-        reject(err);
+        if (err && err.name === 'NotAllowedError') {
+          console.warn('Unmuted play blocked by browser policy, attempting fallback with user context');
+          video.muted = true;
+          video.play().then(() => {
+            renderLoop();
+          }).catch((err2) => {
+            cleanup();
+            reject(err2);
+          });
+        } else {
+          cleanup();
+          reject(err);
+        }
       });
     };
 

@@ -6,6 +6,7 @@ export interface VideoSegment {
   id: string;
   index: number;
   title: string;
+  description?: string;
   startTime: number;
   endTime: number;
   duration: number;

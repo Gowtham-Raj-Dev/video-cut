@@ -36,6 +36,7 @@ export type EmbedClip = {
   type: string;
   blob: Blob;
   title: string;
+  description?: string;
   index: number;
   duration: number;
 };

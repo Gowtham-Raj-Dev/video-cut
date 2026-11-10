@@ -233,6 +233,25 @@ export interface SliceResult {
   extension: string;
 }
 
+export async function prepareInputFile(file: File, onProgress?: (msg: string) => void): Promise<{ ffmpeg: any; inputName: string }> {
+  if (onProgress) onProgress("Preparing video file in fast engine...");
+  const ffmpeg = await getFFmpegInstance();
+  const inputExt = (file.name.split(".").pop() || "mp4").toLowerCase();
+  const inputName = `shared_input_${Date.now()}.${inputExt}`;
+  const fileBuffer = new Uint8Array(await file.arrayBuffer());
+  await ffmpeg.writeFile(inputName, fileBuffer);
+  return { ffmpeg, inputName };
+}
+
+export async function cleanupInputFile(inputName: string): Promise<void> {
+  try {
+    const ffmpeg = await getFFmpegInstance();
+    await ffmpeg.deleteFile(inputName);
+  } catch (e) {
+    console.warn("Shared input cleanup note:", e);
+  }
+}
+
 /**
  * Fast Lossless Slice using local FFmpeg stream copy.
  * Slices 10 minutes from a 20-minute video in literally 1-3 SECONDS!
@@ -243,7 +262,8 @@ export async function sliceVideoLossless(
   segment: VideoSegment,
   selectedAudioIndex: number = -1,
   onProgress?: (status: string) => void,
-  preferMp4: boolean = true
+  preferMp4: boolean = true,
+  existingInputName?: string
 ): Promise<SliceResult> {
   if (onProgress) onProgress("Initializing cut engine...");
   const ffmpeg = await getFFmpegInstance();
@@ -253,13 +273,14 @@ export async function sliceVideoLossless(
   const outputExt = preferMp4 ? "mp4" : (isMkv ? "mkv" : inputExt);
   const outputMime = outputExt === "mp4" ? "video/mp4" : "video/x-matroska";
 
-  const inputName = `input_${Date.now()}.${inputExt}`;
+  const inputName = existingInputName || `input_${Date.now()}.${inputExt}`;
   const outputName = `output_${Date.now()}.${outputExt}`;
 
-  if (onProgress) onProgress("Loading video data...");
-  const fileBuffer = new Uint8Array(await file.arrayBuffer());
-
-  await ffmpeg.writeFile(inputName, fileBuffer);
+  if (!existingInputName) {
+    if (onProgress) onProgress("Loading video data...");
+    const fileBuffer = new Uint8Array(await file.arrayBuffer());
+    await ffmpeg.writeFile(inputName, fileBuffer);
+  }
 
   const startSec = Math.max(0, segment.startTime).toFixed(3);
   const durationSec = Math.max(0.1, segment.duration).toFixed(3);
@@ -296,7 +317,9 @@ export async function sliceVideoLossless(
   const data = await ffmpeg.readFile(outputName);
 
   try {
-    await ffmpeg.deleteFile(inputName);
+    if (!existingInputName) {
+      await ffmpeg.deleteFile(inputName);
+    }
     await ffmpeg.deleteFile(outputName);
   } catch (e) {
     console.warn("Cleanup note:", e);
