@@ -636,9 +636,25 @@ input[type="range"]:active::-webkit-slider-thumb {
 /* ------------------------------------------------------------------ */
 /*  Embed mode (inside UTubeFlow): only the studio is shown           */
 /* ------------------------------------------------------------------ */
+html[data-embed] body {
+  background: transparent !important;
+  min-height: 100vh;
+}
 html[data-embed] .site-chrome { display: none !important; }
-html[data-embed] .studio-wrap { padding-top: 16px; padding-bottom: 24px; }
-html[data-embed] main { padding-left: 12px; padding-right: 12px; }
+html[data-embed] main {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  padding-top: 8px !important;
+  margin: 0 !important;
+}
+html[data-embed] .studio-wrap {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding-top: 8px;
+  padding-bottom: 24px;
+}
 html[data-embed] #studio-monitor { top: 12px; }
 
 @media (prefers-reduced-motion: reduce) {

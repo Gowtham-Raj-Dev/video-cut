@@ -553,11 +553,15 @@ export function VideoCutStudio() {
         ];
       }
 
-      const segs: VideoSegment[] = rawSegments.map((s) => ({
-        ...s,
-        selected: true,
-        status: "idle",
-      }));
+      const segs: VideoSegment[] = rawSegments
+        .filter((s) => s.duration >= 1 && s.endTime > s.startTime)
+        .map((s, i) => ({
+          ...s,
+          index: i + 1,
+          title: s.title.startsWith("Part ") ? `Part ${i + 1}` : s.title,
+          selected: true,
+          status: "idle",
+        }));
 
       setSegments(segs);
     },
@@ -573,9 +577,40 @@ export function VideoCutStudio() {
     setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, description } : s)));
   };
 
-  const updateSegmentDuration = (idx: number, newDurSec: number) => {
-    if (newDurSec <= 0) return;
+  const removeSegment = (idx: number) => {
     setCutMode("custom");
+    setSegments((prev) => {
+      if (prev.length <= 1) return prev;
+      const copy = [...prev];
+      const removed = copy[idx];
+      copy.splice(idx, 1);
+      if (idx > 0) {
+        copy[idx - 1] = {
+          ...copy[idx - 1],
+          endTime: removed.endTime,
+          duration: Math.max(1, removed.endTime - copy[idx - 1].startTime),
+        };
+      } else if (copy.length > 0) {
+        copy[0] = {
+          ...copy[0],
+          startTime: removed.startTime,
+          duration: Math.max(1, copy[0].endTime - removed.startTime),
+        };
+      }
+      return copy
+        .filter((s) => s.duration >= 1 && s.endTime > s.startTime)
+        .map((s, i) => ({ ...s, index: i + 1, title: s.title.startsWith("Part ") ? `Part ${i + 1}` : s.title }));
+    });
+  };
+
+  const updateSegmentDuration = (idx: number, newDurSec: number) => {
+    setCutMode("custom");
+    // If user adjusts length to 0 (or less), auto-delete this segment
+    if (newDurSec <= 0) {
+      removeSegment(idx);
+      return;
+    }
+
     setSegments((prev) => {
       const copy = [...prev];
       if (!copy[idx]) return prev;
@@ -596,10 +631,17 @@ export function VideoCutStudio() {
           ...copy[j],
           startTime: prevEnd,
           endTime: newEnd,
-          duration: Math.max(0.1, newEnd - prevEnd),
+          duration: Math.max(0, newEnd - prevEnd),
         };
       }
-      return copy;
+
+      // Automatically remove any segments that reached 0 length or were pushed beyond total duration
+      const valid = copy.filter((s) => s.duration >= 1 && s.endTime > s.startTime);
+      return (valid.length > 0 ? valid : [copy[0]]).map((s, i) => ({
+        ...s,
+        index: i + 1,
+        title: s.title.startsWith("Part ") ? `Part ${i + 1}` : s.title,
+      }));
     });
   };
 
@@ -661,30 +703,6 @@ export function VideoCutStudio() {
         status: "idle",
       };
       return [...prev.slice(0, -1), part1, part2];
-    });
-  };
-
-  const removeSegment = (idx: number) => {
-    setCutMode("custom");
-    setSegments((prev) => {
-      if (prev.length <= 1) return prev;
-      const copy = [...prev];
-      const removed = copy[idx];
-      copy.splice(idx, 1);
-      if (idx > 0) {
-        copy[idx - 1] = {
-          ...copy[idx - 1],
-          endTime: removed.endTime,
-          duration: removed.endTime - copy[idx - 1].startTime,
-        };
-      } else if (copy.length > 0) {
-        copy[0] = {
-          ...copy[0],
-          startTime: removed.startTime,
-          duration: copy[0].endTime - removed.startTime,
-        };
-      }
-      return copy.map((s, i) => ({ ...s, index: i + 1, title: s.title.startsWith("Part ") ? `Part ${i + 1}` : s.title }));
     });
   };
 
@@ -2202,10 +2220,11 @@ export function VideoCutStudio() {
                               <span className="text-[10px] text-[color:var(--muted)] uppercase font-semibold">Length:</span>
                               <input
                                 type="number"
-                                min="1"
+                                min="0"
                                 max="999"
-                                value={Math.round(seg.duration)}
+                                value={Math.max(0, Math.round(seg.duration))}
                                 onChange={(e) => updateSegmentDuration(idx, Number(e.target.value))}
+                                title="Set to 0 to delete this clip"
                                 className="w-12 text-center text-xs font-mono font-semibold bg-[color:var(--card)] border border-[color:var(--border)] rounded px-1 py-0.5 text-[color:var(--fg)] outline-none focus:border-[color:var(--brand)]"
                               />
                               <span className="text-[10px] font-mono text-[color:var(--muted)]">s</span>

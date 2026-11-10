@@ -127,6 +127,18 @@ export default function RootLayout({
       className={`${body.variable} ${heading.variable} ${code.variable}`}
     >
       <head>
+        {/* Google Analytics 4 */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-65L0LB1CJT" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-65L0LB1CJT');
+            `,
+          }}
+        />
         {/* Embedded in UTubeFlow? Mark <html data-embed> before paint so the site chrome is hidden without a flash. */}
         <script dangerouslySetInnerHTML={{ __html: EMBED_BOOT_SCRIPT }} />
       </head>
