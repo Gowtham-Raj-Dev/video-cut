@@ -21,7 +21,13 @@ export const HOW_IT_WORKS_STEPS = [
   },
 ] as const;
 
-export const FAQS = [
+export type FaqItem = { readonly q: string; readonly a: string };
+
+export const FAQS: readonly FaqItem[] = [
+  {
+    q: "How do I use Video Cut as a free video shorts cutter online?",
+    a: "Drop your long MP4, MKV or MOV file into Video Cut, select Shorts clips (15s, 30s, 45s or 60s), pick 9:16 vertical blur fill or center crop, choose your audio language track, and click Export ZIP. All clips are created right in your browser with no watermark.",
+  },
   {
     q: "Can I cut a 20-minute video into 2 parts, or into twenty 30-second Shorts?",
     a: "Yes. Under “Equal parts”, choose 2 to split the video into two 10-minute halves. Under “Shorts clips”, pick 30s or 60s to chop it into vertical 9:16 clips with a blurred background. You can preview every part and download them all in one ZIP.",

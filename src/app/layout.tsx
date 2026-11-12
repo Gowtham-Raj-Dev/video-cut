@@ -39,13 +39,13 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    // ~55 chars: fits Google's title width without being cut off
-    default: `Free Video Cutter: Split into Parts & Shorts | VideoCut`,
-    template: `%s | ${SITE.name}`,
+    // ~58 chars: fits Google's title width and leads with target head queries
+    default: "Video Cut — Free Video Shorts Cutter & Splitter | CodeLove",
+    template: `%s | VideoCut`,
   },
   description: SITE.description,
   applicationName: SITE.name,
-  authors: [{ name: SITE.creator, url: "https://gowtham.codelove.in" }],
+  authors: [{ name: SITE.creator, url: SITE.creatorUrl }],
   creator: SITE.creator,
   publisher: SITE.brand,
   category: "multimedia",
@@ -72,8 +72,13 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
   keywords: [
-    "free video cutter",
+    "video cut",
+    "videocut",
+    "video shorts cutter",
+    "free video shorts cutter",
     "video cutter online",
+    "free video cutter",
+    "youtube shorts cutter",
     "split video into parts",
     "split video into 2 parts",
     "cut video into equal parts",
@@ -96,7 +101,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "/",
     siteName: SITE.name,
-    title: `Free Video Cutter: Split Videos into Parts & 9:16 Shorts`,
+    title: "Video Cut — Free Video Shorts Cutter & Online Splitter",
     description: SITE.description,
     images: [
       {
@@ -109,7 +114,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `Free Video Cutter: Split Videos into Parts & 9:16 Shorts`,
+    title: "Video Cut — Free Video Shorts Cutter & Online Splitter",
     description: SITE.description,
     images: [{ url: OG_IMAGE.url, alt: OG_IMAGE.alt }],
   },

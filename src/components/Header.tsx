@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Scissors } from "lucide-react";
@@ -25,7 +25,7 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2.5 group shrink-0">
+        <a href="/" className="flex items-center gap-2.5 group shrink-0">
           <div className="w-9 h-9 rounded-xl btn-primary flex items-center justify-center transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-105">
             <Scissors className="w-[18px] h-[18px]" />
           </div>

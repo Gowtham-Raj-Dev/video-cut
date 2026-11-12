@@ -1,5 +1,5 @@
 import { SITE, OG_IMAGE } from "@/lib/site";
-import { FAQS, FEATURE_LIST, HOW_IT_WORKS_STEPS } from "@/lib/content";
+import { FAQS, FEATURE_LIST, HOW_IT_WORKS_STEPS, type FaqItem } from "@/lib/content";
 
 /** Same @ids every CodeLove site uses, so Google links all sites to one organisation and founder. */
 const ORG_ID = `${SITE.brandUrl}/#organization`;
@@ -18,11 +18,18 @@ export function absoluteUrl(path: string): string {
 /*  JSON-LD builders: every value mirrors content visible on the page */
 /* ------------------------------------------------------------------ */
 
-/** Site-wide graph: the WebSite and its publisher, CodeLove. */
+/** Site-wide graph: the WebSite and its publisher, CodeLove + founder Gowtham. */
 export function siteJsonLd() {
   return {
     "@context": "https://schema.org",
     "@graph": [
+      {
+        "@type": "Person",
+        "@id": PERSON_ID,
+        name: SITE.creator,
+        alternateName: ["Gowthamraj", "Gowtham Raj"],
+        url: SITE.creatorUrl,
+      },
       {
         "@type": "Organization",
         "@id": ORG_ID,
@@ -35,27 +42,47 @@ export function siteJsonLd() {
         "@id": WEBSITE_ID,
         url: `${SITE.url}/`,
         name: SITE.name,
-        alternateName: [`VideoCut by ${SITE.brand}`, `${SITE.brand} Video Cutter`, "videocut.codelove.in"],
+        alternateName: [
+          "VideoCut",
+          "Video Cut Studio",
+          "Video Shorts Cutter",
+          `VideoCut by ${SITE.brand}`,
+          `${SITE.brand} Video Cutter`,
+          "videocut.codelove.in",
+        ],
         description: SITE.description,
         inLanguage: "en",
         publisher: { "@id": ORG_ID },
+        creator: { "@id": PERSON_ID },
       },
     ],
   };
 }
 
 /** Home page graph: the web app, its visible 3 steps and its visible FAQ. */
-export function homeJsonLd() {
+export function homeJsonLd(opts?: {
+  pageName?: string;
+  pageDescription?: string;
+  path?: string;
+  breadcrumbName?: string;
+  faqs?: readonly FaqItem[];
+}) {
+  const path = opts?.path ?? "/";
+  const pageUrl = absoluteUrl(path);
+  const pageName = opts?.pageName ?? SITE.name;
+  const pageDescription = opts?.pageDescription ?? SITE.description;
+  const faqs = opts?.faqs ?? FAQS;
+
   return {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "WebApplication",
-        "@id": APP_ID,
-        name: SITE.name,
-        alternateName: "VideoCut",
-        url: `${SITE.url}/`,
-        description: SITE.description,
+        "@id": path === "/" ? APP_ID : `${pageUrl}#app`,
+        name: pageName,
+        alternateName: ["VideoCut", "Video Cut Studio", "Video Shorts Cutter", "Free Video Shorts Cutter"],
+        url: pageUrl,
+        description: pageDescription,
         image: `${SITE.url}${OG_IMAGE.url}`,
         applicationCategory: "MultimediaApplication",
         applicationSubCategory: "Video Editor",
@@ -71,7 +98,7 @@ export function homeJsonLd() {
       },
       {
         "@type": "HowTo",
-        name: "How to cut a video into parts or 9:16 Shorts online",
+        name: `How to use ${pageName} to cut a video into parts or 9:16 Shorts online`,
         totalTime: "PT2M",
         tool: { "@type": "HowToTool", name: SITE.name },
         step: HOW_IT_WORKS_STEPS.map((s, i) => ({
@@ -79,12 +106,22 @@ export function homeJsonLd() {
           position: i + 1,
           name: s.title,
           text: s.desc,
-          url: `${SITE.url}/#how-it-works`,
+          url: `${pageUrl}#how-it-works`,
         })),
       },
       {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "CodeLove", item: SITE.brandUrl },
+          { "@type": "ListItem", position: 2, name: SITE.name, item: `${SITE.url}/` },
+          ...(opts?.breadcrumbName && path !== "/"
+            ? [{ "@type": "ListItem", position: 3, name: opts.breadcrumbName, item: pageUrl }]
+            : []),
+        ],
+      },
+      {
         "@type": "FAQPage",
-        mainEntity: FAQS.map((f) => ({
+        mainEntity: faqs.map((f) => ({
           "@type": "Question",
           name: f.q,
           acceptedAnswer: { "@type": "Answer", text: f.a },

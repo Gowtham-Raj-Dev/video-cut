@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { SectionHeading } from "./FeaturesSection";
-import { FAQS } from "@/lib/content";
+import { FAQS, type FaqItem } from "@/lib/content";
 
-export function FaqSection() {
+export function FaqSection({ faqs = FAQS }: { faqs?: readonly FaqItem[] } = {}) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-  const faqs = FAQS;
 
   return (
     <section id="faq" className="relative z-10 py-20 sm:py-24 border-t border-[color:var(--border)]">
