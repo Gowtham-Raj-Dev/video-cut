@@ -6,7 +6,7 @@ export const SITE = {
   tagline: "Free Video Shorts Cutter & Online Video Splitter",
   // ≤160 chars so Google shows it in full
   description:
-    "Video Cut is a free video shorts cutter & online video splitter. Split videos into equal parts or 30s 9:16 Shorts with blur fill and ZIP export. No upload, no watermark.",
+    "Video Cut is a free video shorts cutter & online splitter. Split videos into equal parts or 30s 9:16 Shorts with blur fill and ZIP export — zero watermark.",
   url: IS_PROD ? "https://videocut.codelove.in" : "http://localhost:3000",
   basePath: "",
   creator: "Gowtham",
@@ -49,9 +49,9 @@ export const FOOTER_LINKS = {
     { label: "Video Cut Studio", href: "/" },
     { label: "Video Shorts Cutter", href: "/video-shorts-cutter/" },
     { label: "Video Cutter", href: "/video-cutter/" },
-    { label: "Features", href: "#features" },
-    { label: "How It Works", href: "#how-it-works" },
-    { label: "FAQ", href: "#faq" },
+    { label: "Features", href: "/#features" },
+    { label: "How It Works", href: "/#how-it-works" },
+    { label: "FAQ", href: "/#faq" },
   ],
   Network: [
     { label: "CodeLove Main", href: "https://codelove.in" },

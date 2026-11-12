@@ -4,9 +4,9 @@ import { homeJsonLd } from "@/lib/seo";
 import { FAQS, type FaqItem } from "@/lib/content";
 import { OG_IMAGE } from "@/lib/site";
 
-const TITLE = "Video Shorts Cutter — Cut Long Videos into 9:16 Shorts Free";
+const TITLE = "Video Shorts Cutter — Split 9:16 Shorts";
 const DESCRIPTION =
-  "Free online video shorts cutter. Automatically slice long movies, podcasts and gameplay into 15s, 30s or 60s 9:16 vertical Shorts and Reels with blur fill & multi-audio.";
+  "Free online video shorts cutter. Slice long videos into 15s, 30s or 60s 9:16 vertical Shorts and Reels with blur fill & multi-audio export.";
 
 const SHORTS_FAQS: readonly FaqItem[] = [
   {

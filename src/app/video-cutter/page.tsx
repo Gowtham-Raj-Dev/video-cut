@@ -4,9 +4,9 @@ import { homeJsonLd } from "@/lib/seo";
 import { FAQS } from "@/lib/content";
 import { OG_IMAGE } from "@/lib/site";
 
-const TITLE = "Video Cut Online — Free Video Cutter & Equal-Parts Splitter";
+const TITLE = "Video Cut Online — Free Video Splitter";
 const DESCRIPTION =
-  "Video Cut splits large MP4, MKV and MOV videos into equal parts or timed clips with lossless quality, audio track picking and ZIP download. Zero uploads, zero watermark.";
+  "Video Cut splits MP4, MKV and MOV videos into equal parts or timed clips with lossless quality, audio track picking and ZIP export. Zero watermark.";
 
 export const metadata: Metadata = {
   title: { absolute: `${TITLE} | CodeLove` },

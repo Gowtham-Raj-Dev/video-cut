@@ -1,0 +1,15 @@
+# Video Cut (by CodeLove)
+
+> Free in-browser video shorts cutter & online video splitter — cut videos into equal parts or 9:16 vertical Shorts/Reels with blur fill, multi-audio track selection, and instant ZIP export.
+
+## Pages
+- [Video Cut Studio](https://videocut.codelove.in/): Main browser video cutter & equal-parts splitter.
+- [Video Shorts Cutter](https://videocut.codelove.in/video-shorts-cutter/): Cut horizontal videos into 15s, 30s, or 60s 9:16 vertical Shorts & Reels.
+- [Video Cutter](https://videocut.codelove.in/video-cutter/): Fast lossless video splitter with multi-language audio selection and ZIP download.
+
+## CodeLove Ecosystem
+- [CodeLove](https://codelove.in)
+- [Video to GIF](https://videotogif.codelove.in)
+- [Video to Images](https://videotoimages.codelove.in)
+- [UTubeFlow](https://utubeflow.codelove.in)
+

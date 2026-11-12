@@ -39,8 +39,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    // ~58 chars: fits Google's title width and leads with target head queries
-    default: "Video Cut — Free Video Shorts Cutter & Splitter | CodeLove",
+    // <=60 chars: fits Google's title width and leads with target head queries
+    default: "Video Cut — Free Video Shorts Cutter & Splitter",
     template: `%s | VideoCut`,
   },
   description: SITE.description,
@@ -131,6 +131,7 @@ export default function RootLayout({
       className={`${body.variable} ${heading.variable} ${code.variable}`}
     >
       <head>
+        <link rel="sitemap" type="application/xml" href="https://videocut.codelove.in/sitemap.xml" />
         {/* Google Analytics 4 */}
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-65L0LB1CJT" />
         <script
