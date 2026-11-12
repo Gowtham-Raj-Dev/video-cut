@@ -49,7 +49,6 @@ export const metadata: Metadata = {
   creator: SITE.creator,
   publisher: SITE.brand,
   category: "multimedia",
-  alternates: { canonical: "/" },
   formatDetection: { telephone: false, email: false, address: false },
   robots: {
     index: true,
