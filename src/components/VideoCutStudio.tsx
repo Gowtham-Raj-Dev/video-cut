@@ -1246,6 +1246,7 @@ export function VideoCutStudio() {
               ref={fileInputRef}
               type="file"
               accept="video/*,.mp4,.webm,.mov,.mkv,.avi"
+              aria-label="Upload video file"
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
