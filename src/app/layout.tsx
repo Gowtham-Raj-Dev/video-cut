@@ -143,6 +143,8 @@ export default function RootLayout({
         />
         {/* Embedded in UTubeFlow? Mark <html data-embed> before paint so the site chrome is hidden without a flash. */}
         <script dangerouslySetInnerHTML={{ __html: EMBED_BOOT_SCRIPT }} />
+        {/* CodeLove Analytics (admin.codelove.in) */}
+        <script defer src="https://admin.codelove.in/t.js" />
       </head>
       <body className="min-h-screen flex flex-col font-sans bg-[color:var(--bg)] text-[color:var(--fg)]">
         <JsonLd data={siteJsonLd()} />
