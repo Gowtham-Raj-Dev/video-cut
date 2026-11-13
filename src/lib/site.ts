@@ -25,12 +25,12 @@ export const OG_IMAGE = {
 } as const;
 
 export const NAV_LINKS = [
-  { label: "Studio", href: "#studio" },
+  { label: "Studio", href: "/cutter/" },
   { label: "Shorts Cutter", href: "/video-shorts-cutter/" },
-  { label: "UTubeFlow", href: "#utubeflow" },
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "FAQ", href: "#faq" },
+  { label: "UTubeFlow", href: "/#utubeflow" },
+  { label: "Features", href: "/#features" },
+
+  { label: "FAQ", href: "/#faq" },
 ] as const;
 
 /** Sibling video tools, shown in the footer's "More video tools" column. */
@@ -46,7 +46,7 @@ export const MORE_VIDEO_TOOLS: readonly { label: string; href: string }[] = [
 
 export const FOOTER_LINKS = {
   Product: [
-    { label: "Video Cut Studio", href: "/" },
+    { label: "Video Cut Studio", href: "/cutter/" },
     { label: "Video Shorts Cutter", href: "/video-shorts-cutter/" },
     { label: "Video Cutter", href: "/video-cutter/" },
     { label: "Features", href: "/#features" },

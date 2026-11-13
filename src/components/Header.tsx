@@ -54,8 +54,8 @@ export function Header() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
 
-          <a href="#studio" className="hidden sm:inline-flex btn btn-primary h-9 px-4 text-[13px]">
-            Start cutting
+          <a href="/cutter/" className="hidden sm:inline-flex btn btn-primary h-9 px-4 text-[13px]">
+            Open Studio
           </a>
         </div>
       </div>

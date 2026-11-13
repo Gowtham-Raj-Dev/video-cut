@@ -62,7 +62,7 @@ export function UTubeFlowSection() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
-          <a href="#studio" className="btn btn-primary h-11 px-5 text-sm">
+          <a href="/cutter/" className="btn btn-primary h-11 px-5 text-sm">
             <Scissors className="w-4 h-4" />
             Start cutting
             <ArrowRight className="w-4 h-4" />

@@ -30,10 +30,7 @@ const code = Geist_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f7fb" },
-    { media: "(prefers-color-scheme: dark)", color: "#07080c" },
-  ],
+  themeColor: "#ffffff",
 };
 
 export const metadata: Metadata = {
@@ -149,7 +146,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col font-sans bg-[color:var(--bg)] text-[color:var(--fg)]">
         <JsonLd data={siteJsonLd()} />
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={true}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <a
             href="#main"
             className="site-chrome sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-[color:var(--fg)] focus:px-4 focus:py-2 focus:text-[color:var(--bg)]"

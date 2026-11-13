@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, FolderArchive, Languages, Scissors, ShieldCheck, Smartphone } from "lucide-react";
-import { VideoCutStudio } from "@/components/VideoCutStudio";
+import { ArrowRight, FolderArchive, Languages, Scissors, ShieldCheck, Smartphone, Type } from "lucide-react";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { HowItWorksSection } from "@/components/HowItWorksSection";
 import { FaqSection } from "@/components/FaqSection";
@@ -12,7 +11,7 @@ export function VideoCutLanding({
   badge = "Free Video Shorts Cutter & Splitter",
   headlineStart = "Video Cut: split long videos into",
   headlineHighlight = "parts & Shorts",
-  lead = "Free online video shorts cutter and splitter. Cut any video into equal halves or 30-second vertical 9:16 Shorts with a blurred background, choose Tamil, Telugu, Hindi or English audio, and download as ZIP.",
+  lead = "Free online video cutter and editor. Split any video into 30-second 9:16 Shorts or equal parts, trim it, add text, music and filters, keep the Tamil, Telugu, Hindi or English audio, and download everything as a ZIP.",
   faqs,
   jsonLd,
 }: {
@@ -28,7 +27,7 @@ export function VideoCutLanding({
       <JsonLd data={jsonLd} />
 
       {/* Ambient backdrop */}
-      <div className="site-chrome hero-grid" />
+      <div className="site-chrome hero-grid" style={{ bottom: "auto", height: 720 }} />
       <div className="site-chrome studio-glow" />
 
       {/* Hero */}
@@ -54,6 +53,7 @@ export function VideoCutLanding({
             { icon: Scissors, text: "Equal parts" },
             { icon: Smartphone, text: "9:16 blur fill" },
             { icon: Languages, text: "Multi-audio" },
+            { icon: Type, text: "Text & music" },
             { icon: FolderArchive, text: "One-click ZIP" },
             { icon: ShieldCheck, text: "No watermark" },
           ].map(({ icon: Icon, text }) => (
@@ -62,6 +62,14 @@ export function VideoCutLanding({
               {text}
             </span>
           ))}
+        </div>
+
+        <div className="flex justify-center pt-1">
+          <Link href="/cutter/" className="btn btn-primary h-11 px-6 text-sm">
+            <Scissors className="w-4 h-4" />
+            Open VideoCut Studio
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
 
         <Link
@@ -76,11 +84,6 @@ export function VideoCutLanding({
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </section>
-
-      {/* Studio */}
-      <div className="studio-wrap relative z-10 pb-16">
-        <VideoCutStudio />
-      </div>
 
       <div className="site-chrome">
         <UTubeFlowSection />

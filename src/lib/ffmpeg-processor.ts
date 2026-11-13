@@ -75,6 +75,18 @@ export async function getFFmpegInstance(onProgress?: (progress: number) => void)
   return ffmpegLoadingPromise;
 }
 
+/**
+ * Stops whatever FFmpeg is doing (used by "Cancel" in the editor). The worker is thrown away;
+ * the next getFFmpegInstance() call loads a fresh one.
+ */
+export function terminateFFmpeg(): void {
+  try {
+    ffmpegInstance?.terminate?.();
+  } catch {}
+  ffmpegInstance = null;
+  ffmpegLoadingPromise = null;
+}
+
 const LANGUAGE_MAP: Record<string, string> = {
   tam: "Tamil",
   ta: "Tamil",
