@@ -1,5 +1,5 @@
 import { SITE, OG_IMAGE } from "@/lib/site";
-import { FAQS, FEATURE_LIST, HOW_IT_WORKS_STEPS, type FaqItem } from "@/lib/content";
+import { FAQS, FEATURE_LIST, type FaqItem } from "@/lib/content";
 
 /** Same @ids every CodeLove site uses, so Google links all sites to one organisation and founder. */
 const ORG_ID = `${SITE.brandUrl}/#organization`;
@@ -96,19 +96,7 @@ export function homeJsonLd(opts?: {
         publisher: { "@id": ORG_ID },
         creator: { "@id": PERSON_ID },
       },
-      {
-        "@type": "HowTo",
-        name: `How to use ${pageName} to cut a video into parts or 9:16 Shorts online`,
-        totalTime: "PT2M",
-        tool: { "@type": "HowToTool", name: SITE.name },
-        step: HOW_IT_WORKS_STEPS.map((s, i) => ({
-          "@type": "HowToStep",
-          position: i + 1,
-          name: s.title,
-          text: s.desc,
-          url: `${pageUrl}#how-it-works`,
-        })),
-      },
+      // No HowTo node: Google removed HowTo rich results in 2023. The steps stay visible on the page.
       {
         "@type": "BreadcrumbList",
         itemListElement: [
