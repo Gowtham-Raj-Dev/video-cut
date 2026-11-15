@@ -4,6 +4,7 @@ import { FeaturesSection } from "@/components/FeaturesSection";
 import { HowItWorksSection } from "@/components/HowItWorksSection";
 import { FaqSection } from "@/components/FaqSection";
 import { UTubeFlowSection } from "@/components/UTubeFlowSection";
+import { GuideVideoSection } from "@/components/GuideVideoSection";
 import { JsonLd } from "@/components/JsonLd";
 import type { FaqItem } from "@/lib/content";
 
@@ -86,6 +87,7 @@ export function VideoCutLanding({
       </section>
 
       <div className="site-chrome">
+        <GuideVideoSection />
         <UTubeFlowSection />
         <FeaturesSection />
         <HowItWorksSection />
