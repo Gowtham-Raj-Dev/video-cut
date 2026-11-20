@@ -6,7 +6,7 @@ export const SITE = {
   tagline: "Free Video Shorts Cutter & Online Video Splitter",
   // ≤160 chars so Google shows it in full
   description:
-    "Video Cut is a free video shorts cutter & online splitter. Split videos into equal parts or 30s 9:16 Shorts with blur fill and ZIP export — zero watermark.",
+    "Video Cut: free video cutter & Shorts cutter. Split video into parts, cut long videos into 30 second Shorts, landscape to 9:16. No watermark.",
   url: IS_PROD ? "https://videocut.codelove.in" : "http://localhost:3000",
   basePath: "",
   creator: "Gowtham",

@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
     // <=60 chars: fits Google's title width and leads with target head queries
-    default: "Video Cut — Free Video Shorts Cutter & Splitter",
+    default: "Video Cut — Free Video Cutter & YouTube Shorts Cutter",
     template: `%s | VideoCut`,
   },
   description: SITE.description,

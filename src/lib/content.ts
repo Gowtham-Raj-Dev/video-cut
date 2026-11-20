@@ -25,20 +25,28 @@ export type FaqItem = { readonly q: string; readonly a: string };
 
 export const FAQS: readonly FaqItem[] = [
   {
-    q: "How do I use Video Cut as a free video shorts cutter online?",
+    q: "How do I cut a long video into Shorts with this YouTube Shorts cutter?",
     a: "Drop your long MP4, MKV or MOV file into Video Cut, select Shorts clips (15s, 30s, 45s or 60s), pick 9:16 vertical blur fill or center crop, choose your audio language track, and click Export ZIP. All clips are created right in your browser with no watermark.",
   },
   {
-    q: "Can I cut a 20-minute video into 2 parts, or into twenty 30-second Shorts?",
-    a: "Yes. Under “Equal parts”, choose 2 to split the video into two 10-minute halves. Under “Shorts clips”, pick 30s or 60s to chop it into vertical 9:16 clips with a blurred background. You can preview every part and download them all in one ZIP.",
+    q: "Can I cut a video into 30 second clips?",
+    a: "Yes. Choose Shorts clips and pick 30s: Video Cut chops the whole video into back-to-back 30-second clips (15s, 45s and 60s work the same way). The last clip keeps whatever is left (a leftover under 1.5 seconds is added to it). Every clip is in the ZIP, numbered in order.",
+  },
+  {
+    q: "How do I split a video into parts?",
+    a: "Under “Equal parts”, choose how many parts you want, from 2 to 20. A 20-minute video split into 2 gives two 10-minute halves; split into 4 gives four 5-minute parts. In Original mode the parts are cut without re-encoding, so they keep the full quality.",
+  },
+  {
+    q: "Is Video Cut a free video splitter online?",
+    a: "Yes. It is a free video cutter and splitter that runs in your web browser: no app to install, no sign-up, no watermark and no file size limit set by us.",
   },
   {
     q: "How does the multi-audio picker work (Tamil, Telugu, Hindi, English)?",
     a: "If your MKV or MP4 has several audio tracks or dubs, VideoCut scans and lists them all. Pick a language, listen to it in the live preview, and your exported parts keep only that track.",
   },
   {
-    q: "How does the blurred background work for landscape videos?",
-    a: "Placing a 16:9 video into a 9:16 frame normally leaves empty bars. Blur fill enlarges the video behind itself with a soft blur and vignette, while the original stays sharp and centred: the style popular on Shorts and Reels.",
+    q: "How do I turn a landscape video into Shorts (9:16)?",
+    a: "Pick a 9:16 frame style. Placing a 16:9 video into a 9:16 frame normally leaves empty bars, so Blur fill enlarges the video behind itself with a soft blur and vignette while the original stays sharp and centred: the style popular on Shorts and Reels. You can also choose letterbox (plain bars) or zoom fill (crop to fill the frame).",
   },
   {
     q: "Is there any quality loss?",
