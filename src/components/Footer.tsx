@@ -46,6 +46,16 @@ export function Footer() {
             <h3 className="label !text-[color:var(--fg)]">Get in touch</h3>
             <ul className="mt-4 space-y-2.5">
               <li>
+                <a href="/about/" className={linkCls}>
+                  About Video Cut
+                </a>
+              </li>
+              <li>
+                <a href="/contact/" className={linkCls}>
+                  Contact
+                </a>
+              </li>
+              <li>
                 <a href={`mailto:${CONTACT_EMAIL}`} className={linkCls}>
                   <Mail className="w-3.5 h-3.5" /> Email us
                 </a>
@@ -118,8 +128,16 @@ export function Footer() {
 
         {/* Credit line */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[color:var(--border)] pt-6 text-sm text-[color:var(--muted)] sm:flex-row">
-          <p>
-            © {new Date().getFullYear()} {SITE.name}. All rights reserved.
+          <p className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <span>
+              © {new Date().getFullYear()} {SITE.name}. All rights reserved.
+            </span>
+            <a href="/privacy/" className="transition-colors hover:text-[color:var(--fg)]">
+              Privacy
+            </a>
+            <a href="/terms/" className="transition-colors hover:text-[color:var(--fg)]">
+              Terms
+            </a>
           </p>
           <p className="inline-flex items-center gap-1.5 flex-wrap justify-center">
             Built with <HeartButton /> by{" "}

@@ -8,6 +8,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { SITE, OG_IMAGE } from "@/lib/site";
 import { siteJsonLd } from "@/lib/seo";
 import { EMBED_BOOT_SCRIPT } from "@/lib/embed";
+import { ADSENSE_CLIENT } from "@/lib/adsense";
 
 // Body: Geist (clean, neutral UI text). Headings: Bricolage Grotesque (characterful display).
 // Timecodes & numbers: Geist Mono.
@@ -129,6 +130,17 @@ export default function RootLayout({
     >
       <head>
         <link rel="sitemap" type="application/xml" href="https://videocut.codelove.in/sitemap.xml" />
+        {/* Google AdSense — rendered only while a publisher ID is set in src/lib/adsense.ts */}
+        {ADSENSE_CLIENT ? (
+          <>
+            <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
+            <script
+              async
+              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+              crossOrigin="anonymous"
+            />
+          </>
+        ) : null}
         {/* Google Analytics 4 */}
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-65L0LB1CJT" />
         <script

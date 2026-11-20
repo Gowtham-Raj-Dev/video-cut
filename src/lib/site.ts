@@ -63,8 +63,8 @@ export const FOOTER_LINKS = {
     { label: "Free 3D Games", href: "https://games.codelove.in" },
   ],
   Legal: [
-    { label: "Privacy Policy", href: "https://codelove.in/legal/privacy" },
-    { label: "Terms of Service", href: "https://codelove.in/legal/terms" },
+    { label: "Privacy Policy", href: "/privacy/" },
+    { label: "Terms of Service", href: "/terms/" },
   ],
 } as const;
 
